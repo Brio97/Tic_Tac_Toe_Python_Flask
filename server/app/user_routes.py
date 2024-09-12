@@ -36,14 +36,20 @@ def register():
 @user_blueprint.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
+    identifier = data.get('identifier')
+    password = data.get('password')
+
+    if not identifier or not password:
+        return jsonify({"error": "Missing identifier or password"}), 400
+
+    # Try to find user by email or username
     user = None
-    
-    if 'username' in data:
-        user = User.query.filter_by(username=data['username']).first()
-    if 'email' in data:
-        user = User.query.filter_by(email=data['email']).first()
-    
-    if user and user.check_password(data['password']):
+    if is_valid_email(identifier):
+        user = User.query.filter_by(email=identifier).first()
+    else:
+        user = User.query.filter_by(username=identifier).first()
+
+    if user and user.check_password(password):
         session['user_id'] = user.id
         return jsonify({"message": "Login successful"}), 200
     return jsonify({"error": "Invalid credentials"}), 401
@@ -52,3 +58,21 @@ def login():
 def logout():
     session.pop('user_id', None)
     return jsonify({"message": "Logged out successfully"}), 200
+
+@user_blueprint.route('/users/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    data = request.get_json()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    if 'username' in data:
+        user.username = data['username']
+    
+    try:
+        db.session.commit()
+        return jsonify({"message": "User updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 500
