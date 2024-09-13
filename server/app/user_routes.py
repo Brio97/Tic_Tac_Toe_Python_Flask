@@ -76,3 +76,20 @@ def update_user(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": str(e)}), 500
+
+@user_blueprint.route('/check-auth', methods=['GET'])
+def check_auth():
+    user_id = session.get('user_id')
+    if user_id:
+        user = User.query.get(user_id)
+        return jsonify({"authenticated": True, "user_id": user_id, "username": user.username}), 200
+    return jsonify({"authenticated": False}), 401
+
+@user_blueprint.route('/available-users', methods=['GET'])
+def get_available_users():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "User not logged in"}), 401
+    
+    users = User.query.filter(User.id != user_id).all()  # Exclude the current user
+    return jsonify([{"id": user.id, "username": user.username} for user in users]), 200

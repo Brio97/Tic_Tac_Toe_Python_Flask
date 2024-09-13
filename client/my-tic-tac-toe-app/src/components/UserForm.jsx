@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { updateUserData } from '../api/updateUserData';
 
 function UserForm({ userId }) {
   const [name, setName] = useState('');
   const [error, setError] = useState(null);
+  const navigate = useNavigate();  // Use for redirect
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();  // Prevent page reload
     try {
       await updateUserData(userId, { name });
       alert('User updated successfully!');
-      // Optionally reset form or redirect user
+      navigate('/login');  // Redirect after success
     } catch (error) {
       setError('Failed to update user');
       console.error('Update error:', error);
@@ -19,14 +21,14 @@ function UserForm({ userId }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <label>
-        Name:
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </label>
+      <label htmlFor="name">Name:</label>
+      <input
+        type="text"
+        id="name"
+        name="name"  // Add name attribute for browser autofill
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
       <button type="submit">Update</button>
       {error && <p>{error}</p>}
     </form>
@@ -34,3 +36,4 @@ function UserForm({ userId }) {
 }
 
 export default UserForm;
+

@@ -8,7 +8,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 
 def create_app():
-    app = Flask(__name__, static_folder='../client/dist', static_url_path='')
+    app = Flask(__name__, static_folder='../client/my-tic-tac-toe-app/dist', static_url_path='')
 
     app.config.from_object('config.Config')
 
@@ -16,7 +16,7 @@ def create_app():
     migrate.init_app(app, db)
 
     # Enable CORS for all routes
-    CORS(app)
+    CORS(app, supports_credentials=True)
 
     # Register blueprints here
     from .user_routes import user_blueprint

@@ -1,21 +1,70 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GameBoard from '../components/GameBoard';
+import { checkAuth } from '/utils/auth';
+import { fetchAvailableUsers, fetchPreviousGames } from '../api/fetchUserData';
 
 const GamePage = () => {
-  const [gameId, setGameId] = useState(null);
-  const [gridSize, setGridSize] = useState(3); // Default grid size
-  const [playerX, setPlayerX] = useState(''); // Set this based on user selection
-  const [playerO, setPlayerO] = useState(''); // Set this based on user selection
+  const [game_id, setGameId] = useState(null);
+  const [gridSize, setGridSize] = useState(3);
+  const [playerChoice, setPlayerChoice] = useState('AI');
+  const [selectedOpponent, setSelectedOpponent] = useState('');
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [previousGames, setPreviousGames] = useState([]);
   const [isCreatingGame, setIsCreatingGame] = useState(false);
+  const [error, setError] = useState('');
+  const [user_id, setUserId] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const authenticateAndFetchData = async () => {
+      try {
+        const authData = await checkAuth();
+        if (!authData || !authData.user_id) {
+          console.log('User not authenticated, redirecting to login');
+          navigate('/login');
+          return;
+        }
+        setUserId(authData.user_id);
+
+        const users = await fetchAvailableUsers();
+        setAvailableUsers(users);
+
+        const games = await fetchPreviousGames();
+        setPreviousGames(games);
+      } catch (error) {
+        setError('Error fetching data');
+        console.error('Error in authenticateAndFetchData:', error);
+      }
+    };
+
+    authenticateAndFetchData();
+  }, [navigate]);
 
   const handleCreateGame = async () => {
     setIsCreatingGame(true);
     try {
-      const response = await axios.post('http://127.0.0.1:5000/game', { grid_size: gridSize, player_x: playerX, player_o: playerO });
-      setGameId(response.data.game_id);
+      const response = await fetch('/game', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          grid_size: gridSize,
+          player_x: user_id,
+          player_o: playerChoice === 'AI' ? null : selectedOpponent
+        })
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      console.log('Game created successfully:', data);
+      setGameId(data.game_id);
+      navigate(`/move/${data.game_id}`);
     } catch (error) {
-      console.error('Error creating game:', error);
+      setError(error.message || 'Error creating game');
+      console.error('Error in handleCreateGame:', error);
     } finally {
       setIsCreatingGame(false);
     }
@@ -24,8 +73,8 @@ const GamePage = () => {
   return (
     <div>
       <h1>Tic-Tac-Toe</h1>
-      {gameId ? (
-        <GameBoard gameId={gameId} />
+      {game_id ? (
+        <GameBoard game_id={game_id} />
       ) : (
         <div>
           <h2>Create a New Game</h2>
@@ -40,26 +89,65 @@ const GamePage = () => {
           </label>
           <br />
           <label>
-            Player X:
-            <input
-              type="text"
-              value={playerX}
-              onChange={(e) => setPlayerX(e.target.value)}
-            />
+            Opponent:
+            <div>
+              <label>
+                <input
+                  type="radio"
+                  value="AI"
+                  checked={playerChoice === 'AI'}
+                  onChange={(e) => setPlayerChoice(e.target.value)}
+                />
+                Play against AI
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="Other"
+                  checked={playerChoice === 'Other'}
+                  onChange={(e) => setPlayerChoice(e.target.value)}
+                />
+                Play against another player
+              </label>
+            </div>
           </label>
-          <br />
-          <label>
-            Player O (optional):
-            <input
-              type="text"
-              value={playerO}
-              onChange={(e) => setPlayerO(e.target.value)}
-            />
-          </label>
+          {playerChoice === 'Other' && (
+            <label>
+              Select Opponent:
+              <select
+                value={selectedOpponent}
+                onChange={(e) => setSelectedOpponent(e.target.value)}
+              >
+                <option value="">--Select Opponent--</option>
+                {availableUsers.length > 0 ? (
+                  availableUsers.map(user => (
+                    <option key={user.id} value={user.id}>{user.username}</option>
+                  ))
+                ) : (
+                  <option value="">No users available</option>
+                )}
+              </select>
+            </label>
+          )}
           <br />
           <button onClick={handleCreateGame} disabled={isCreatingGame}>
             {isCreatingGame ? 'Creating Game...' : 'Create Game'}
           </button>
+          {previousGames.length > 0 && (
+            <div>
+              <h2>Continue Previous Games</h2>
+              <ul>
+                {previousGames.map(game => (
+                  <li key={game.id}>
+                    <button onClick={() => navigate(`/move/${game.id}`)}>
+                      Continue Game {game.id} (vs {game.player_o || 'AI'})
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {error && <p>{error}</p>}
         </div>
       )}
     </div>
@@ -67,3 +155,6 @@ const GamePage = () => {
 };
 
 export default GamePage;
+
+
+

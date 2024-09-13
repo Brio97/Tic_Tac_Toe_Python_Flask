@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from .models import Game, User
 from . import db
-from .utils import make_move, check_winner, check_draw, create_game, ai_move, handle_game_state_update
+from .utils import create_game, make_move, check_winner, check_draw, ai_move, handle_game_state_update
 import json
 from threading import Lock
 
@@ -43,13 +43,18 @@ def create_game_route():
         db.session.rollback()
         return jsonify({"message": str(e)}), 500
 
-@game_blueprint.route('/move', methods=['POST'])
-def make_move_route():
+@game_blueprint.route('/move/<int:game_id>', methods=['POST'])
+def make_move_route(game_id):
+    print(f"Game ID: {game_id}")
     data = request.get_json()
-    if not data or 'game_id' not in data or 'player' not in data or 'position' not in data:
+    position = data.get('position')
+    player = data.get('player')
+    print(f"Request Data: {data}")
+
+    if not data or 'player' not in data or 'position' not in data:
         return jsonify({"message": "Missing fields"}), 400
 
-    game = Game.query.get(data['game_id'])
+    game = Game.query.get(game_id)
     if not game:
         return jsonify({"message": "Game not found"}), 404
 
@@ -58,7 +63,6 @@ def make_move_route():
     except json.JSONDecodeError:
         return jsonify({"message": "Invalid game state"}), 500
 
-    position = data['position']
     if position < 0 or position >= game.grid_size * game.grid_size:
         return jsonify({"error": "Position out of bounds"}), 400
 
@@ -158,10 +162,12 @@ def make_move_route():
 def get_game(game_id):
     game = Game.query.get(game_id)
     if game:
+        game_state = json.loads(game.state) if game.state else []
         return jsonify({
             "grid_size": game.grid_size,
-            "game_state": json.loads(game.state) if game.state else [],
+            "game_state": game_state,
             "player_x": game.player_x.username,
             "player_o": game.player_o.username if game.player_o else "AI"
         }), 200
     return jsonify({"error": "Game not found"}), 404
+

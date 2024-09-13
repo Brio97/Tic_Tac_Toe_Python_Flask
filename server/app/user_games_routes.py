@@ -16,3 +16,15 @@ def user_games():
         "grid_size": game.grid_size,
         "status": "completed" if check_winner(json.loads(game.state) if game.state else [], game.grid_size) else "ongoing"
     } for game in games]), 200
+
+@user_games_blueprint.route('/user/incomplete-games', methods=['GET'])
+def incomplete_games():
+    games = Game.query.all()  # Adjust this if you want to filter by a specific user
+    incomplete_games = [game for game in games if not check_winner(json.loads(game.state) if game.state else [], game.grid_size)]
+
+    return jsonify([{
+        "game_id": game.id,
+        "player_x": game.player_x_id,
+        "player_o": game.player_o_id,
+        "grid_size": game.grid_size
+    } for game in incomplete_games]), 200
